@@ -1,0 +1,45 @@
+$PACKAGE Cu.Account
+*-----------------------------------------------------------------------------
+* <Rating>0</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE CU.STO.CAR.DRAW.AMT(SOId,rSO,rAcc,amtCurr)
+*===============================================================================
+* Company Name    : SRGCU
+* Developed By    : Magdalena Pavlova
+* Arguments In    : n\a
+* Arguments Out   : n\a
+* Attached To     : n\a
+* Attached As     : n\a
+*-----------------------------------------------------------------------------
+* Description     : routine should be attached to SO>CUR.AMT.ROUTINE car draw recordes
+* 					it will be done via following version STANDING.ORDER,CU.DRAW
+* 					this routine will always use amount from CU.PARAMETER
+*-----------------------------------------------------------------------------
+* Modification History:
+*------------------------
+* Date              Who                Reference                 Description
+*-----------------------------------------------------------------------------
+* 22-03-2019        Magdalena Pavlova                            Initial Version
+*=============================================================================== 
+	
+	$INSERT I_COMMON
+	$INSERT I_EQUATE
+    $USING Cu.Parameter
+    
+	sParamName = '  CAR.DRAW.AMT'
+    sParamValues = ''
+    sError.param = ''
+    sRestFlagPernament = ''
+	
+    Cu.Parameter.CuLibGetCuParameter( 'ALL-DRAW.PARAMETERS', sParamName, sParamValues, sError.param )
+    IF sError.param THEN
+        bFatalError = 1
+        sErrorLog<-1> = 'DRAW.PARAMETERS ' :sError.param
+        RETURN
+    END
+	
+	amtCurr = sParamValues
+
+    RETURN
+
+END

@@ -1,0 +1,583 @@
+$PACKAGE Cu.Account
+*-----------------------------------------------------------------------------
+* <Rating>4</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE CU.B.DRAW
+*===============================================================================
+* Company Name    : SRGCU
+* Developed By    : Magdalena Pavlova R17
+*				  : Lukasz Czechowicz R08
+* Arguments In    : n\a
+* Arguments Out   : n\a
+* Attached To     : Batch BNK/CU.DRAW.SERVICE
+* Attached As     : Batch routine
+*-----------------------------------------------------------------------------
+* Modification History:
+*------------------------
+* Date              Who                Reference                 Description
+*-----------------------------------------------------------------------------
+* 22-03-2019        Magdalena Pavlova                            Initial Version
+*=============================================================================== 
+    $INSERT I_COMMON
+	$INSERT I_EQUATE
+    $INSERT I_GTS.COMMON
+    $INSERT I_BATCH.FILES
+    $INSERT I_F.TSA.SERVICE
+    $INSERT I_F.STMT.ENTRY
+    $INSERT I_F.FUNDS.TRANSFER
+    $INSERT I_F.ACCOUNT
+    $INSERT I_F.CUSTOMER
+    $INSERT I_F.COMPANY
+    $INSERT I_F.USER
+    *$INSERT I_F.CU.DRAW
+    $USING Cu.Parameter
+	
+	GOSUB OpenFiles
+    GOSUB OpenFiles3
+Main:
+    GOSUB Initialise
+    GOSUB Process
+    RETURN
+Initialise:
+    CALL OPF( fnStmtEntry, fvStmtEntry )
+	CALL OPF( fnStmtEntryDetail, fvStmtEntryDetail ) 
+    CALL OPF( fnFundsTransfer, fvFundsTransfer )
+    CALL OPF( fnFundsTransferHis, fvFundsTransferHis )
+    CALL OPF( fnAccount, fvAccount )
+    CALL OPF( fnCustomer, fvCustomer )
+    CALL OPF( fnUser, fvUser )
+    sDrawAccountId = rCuDraw<Cu.Account.CuDraw.CuDrawDrawAcct>
+    sStartDate = rCuDraw<Cu.Account.CuDraw.CuDrawStartDate>
+    sEndDate = rCuDraw<Cu.Account.CuDraw.CuDrawEndDate>
+    iWinnerCount = DCOUNT(rCuDraw<Cu.Account.CuDraw.CuDrawPrizeDescription>, @VM)
+    sWinners = ''
+    sAction = rCuDraw<Cu.Account.CuDraw.CuDrawAction>
+    iIdx = RND( 1000 )
+    RETURN
+Process:
+    BEGIN CASE
+    CASE sAction EQ 'DRAW'
+        GOSUB Perform.Draw
+    CASE sAction EQ 'EXPORT'
+        GOSUB Export.Draw
+    CASE sAction EQ 'IMPORT'
+        GOSUB Import.Draw
+    END CASE
+* Send email
+    sError = ''
+    sAttachmentPath = sExportPath
+    sSubject =  ''
+	sAttachment = ''
+    iCount = DCOUNT(sEmailAdr, @VM)
+    LOOP
+	iVm = 1
+	WHILE iVm LE iCount
+	*FOR iVm = 1 TO iCount
+        Cu.Account.LibSendEmail(sEmailAdr<1, iVm>, sSubject, sEmailMsg, sAttachmentPath, sAttachment, sError)
+        IF sError THEN
+            *CRT sError
+        END
+    *NEXT iVm
+	iVm = iVm+1
+	REPEAT
+    RETURN
+Perform.Draw:
+    GOSUB Get.Participants
+    IF iDrawCount LT iWinnerCount THEN
+        sErr =  "Number of prizes (":iWinnerCount:") greater than the number of members in the draw (":iDrawCount:")."
+        sEmailMsg<-1> = sErr
+        *CRT sErr
+        RETURN
+    END
+    GOSUB Process1
+    rCuDraw<Cu.Account.CuDraw.CuDrawDrawDateTime> = TODAY:' ':OCONV( TIME(), 'MTS' )
+    rCuDraw<Cu.Account.CuDraw.CuDrawUser> = OPERATOR
+    CALL F.WRITE(fnCuDraw, sCuDrawId, rCuDraw)
+    CALL F.RELEASE(fnCuDraw,sCuDrawId,fvCuDraw)
+    RETURN
+Export.Draw:
+    GOSUB Get.Participants
+    IF iDrawCount LT iWinnerCount THEN
+        sErr =  "Number of prizes (":iWinnerCount:") greater than the number of members in the draw (":iDrawCount:")."
+        sEmailMsg<-1> = sErr
+        *CRT sErr
+        RETURN
+    END
+*   Export Draw Details
+    sDrawDetails = sCuDrawId['-', 1, 1]:';':sCuDrawId['-', 2, 1]:';S;':iDrawCount
+    Cu.Account.LibWriteSeq( sExportPath, 'DD-':sCuDrawId, sDrawDetails, sError )
+    IF sError THEN
+        *CRT sError
+        sEmailMsg<-1> = sError
+        RETURN
+    END
+	sCmd = 'aescrypt -e -p ':sCuDrawId:' ':sExportPath:'/DD-':sCuDrawId
+	CALL SYSTEM.CALL("START", "", sCmd, "", "" )
+    sCmdRm = sExportPath:'/DD-':sCuDrawId
+	CALL SYSTEM.CALL("REMOVE", "", sCmdRm, "", "" )
+*   Export Draw Users
+    sDrawUsers = ''
+    iDrawUserCount = DCOUNT(rCuDraw<CU.DRAW.ALLOW.USER>, @VM)
+    LOOP
+	iDrawUserIdx = 1
+	WHILE iDrawUserIdx LE iDrawUserCount
+	*FOR iDrawUserIdx = 1 TO iDrawUserCount
+        sUserId = rCuDraw<CU.DRAW.ALLOW.USER, iDrawUserIdx>
+        CALL F.READ( fnUser, sUserId, rUser, fvUser, sError )
+        sDrawUsers<-1> = rUser<EB.USE.USER.NAME>:';':rUser<EB.USE.SIGN.ON.NAME>:';':rUser<EB.USE.PASSWORD, 1>
+    *NEXT iDrawUserIdx
+	iDrawUserIdx = iDrawUserIdx+1
+	REPEAT
+   GOSUB Export.Draw1
+   GOSUB Export.Draw2
+   GOSUB Export.Draw3
+   GOSUB Export.Draw4
+RETURN
+Import.Draw:
+	sCmd = 'aescrypt -d -p ':sCuDrawId:' ':sExportPath:'/DW-':sCuDrawId:'.aes'
+	CALL SYSTEM.CALL("START", "", sCmd, "", "" )
+    Cu.Account.LibReadSeq( sExportPath, 'DW-':sCuDrawId, sWinnerList, sError )
+    IF sError THEN
+        *CRT sError
+        sEmailMsg<-1> = sError
+        RETURN
+    END
+    iWinnerCount = DCOUNT( sWinnerList, @FM )
+    LOOP
+	iIdx = 1
+	WHILE iIdx LE iWinnerCount
+	*FOR iIdx = 1 TO iWinnerCount
+        sWinnerInfo = sWinnerList<iIdx>
+        sPrizeNumber = iIdx
+        sWinnerAcct = sWinnerInfo[';', 1, 1]
+        sWinnerNo = sWinnerInfo[';', 2, 1]
+        sManual = ''
+        CALL F.READ( fnCustomer, sWinnerNo, rCustomer, fvCustomer, sError )
+        rCuDraw<Cu.Account.CuDraw.CuDrawPrizeWinAcct, sPrizeNumber> = sWinnerAcct
+        rCuDraw<Cu.Account.CuDraw.CuDrawPrizeWinMember, sPrizeNumber> = sWinnerNo
+        rCuDraw<Cu.Account.CuDraw.CuDrawPrizeWinName, sPrizeNumber> = rCustomer<EB.CUS.SHORT.NAME>
+        IF sManual[1, 1] EQ 'Y' THEN
+            rCuDraw<Cu.Account.CuDraw.CuDrawManualEntry, sPrizeNumber> = 'YES'
+        END
+        ELSE
+            rCuDraw<Cu.Account.CuDraw.CuDrawManualEntry, sPrizeNumber> = 'NO'
+        END
+    *NEXT iIdx
+	iIdx = iIdx+1
+	REPEAT
+    sDateTime = ''
+    sUser = ''
+    rCuDraw<Cu.Account.CuDraw.CuDrawDrawDateTime> = sDateTime
+    rCuDraw<Cu.Account.CuDraw.CuDrawUser> = sUser
+    *WRITE sCuDrawId ON F.LOCKING, sCompanyMnemonic : '-CU.DRAW.LAST'
+    CALL F.WRITE(fnCuDraw, sCuDrawId, rCuDraw)
+	CALL F.RELEASE(fnCuDraw,sCuDrawId,fvCuDraw)
+    RETURN
+Get.Participants:
+*   Store all participating accounts in sDrawAccounts list
+    sDrawAccounts = ''
+    iDrawCount = 0
+    Cu.Account.LibGetAcStmtEntries( sDrawAccountId, sStartDate, sEndDate, sEntryIdList, sError )
+    LOOP
+        REMOVE sStmtEntryId FROM sEntryIdList SETTING sMark
+    WHILE sStmtEntryId DO
+	GOSUB Get.Participants1
+		IF NOT(SampFlag1) THEN
+        sFtRef = rStmtEntry<AC.STE.TRANS.REFERENCE>
+        sFtRefHis = rStmtEntry<AC.STE.TRANS.REFERENCE> : ';1'
+		CALL F.READ( fnFundsTransferHis, sFtRefHis, rFundsTransfer, fvFundsTransferHis, sError)
+		CALL F.READ( fnFundsTransfer, sFtRef, rFundsTransfer, fvFundsTransfer, sError)
+		IF rFundsTransfer NE '' THEN
+                SampFlag1 = 1
+		END
+        IF rFundsTransfer<FT.INWARD.PAY.TYPE>[1, 3] NE 'STO' AND NOT(SampFlag1) THEN
+			SampFlag1 = 1
+        END
+        IF rFundsTransfer<FT.DEBIT.ACCT.NO> EQ '' AND NOT(SampFlag1) THEN
+			SampFlag1 = 1
+        END
+        IF rCuDraw<Cu.Account.CuDraw.CuDrawAllowDup> EQ 'NO' AND NOT(SampFlag1) THEN
+        GOSUB CuDraw.Loc
+        END
+        IF rCuDraw<Cu.Account.CuDraw.CuDrawAllowDup> NE 'NO' AND NOT(SampFlag1) THEN
+            sDrawAccounts<-1> = rFundsTransfer<FT.DEBIT.ACCT.NO>
+            iDrawCount += 1
+		END
+    REPEAT
+    RETURN
+	
+---------------------------------------------------------------------------------------------------------------------------
+Get.Participants1:
+---------------------------------------------------------------------------------------------------------------------------
+CALL F.READ( fnStmtEntry, sStmtEntryId, rStmtEntry, fvStmtEntry, sError)
+	CALL F.READ( fnStmtEntryDetail, sStmtEntryId, rStmtEntry, fvStmtEntryDetail, sError)
+        IF rStmtEntry NE '' THEN
+			SampFlag1 = 1
+		END
+        IF (rStmtEntry<AC.STE.BOOKING.DATE> GE sStartDate) AND (rStmtEntry<AC.STE.BOOKING.DATE> LE sEndDate) AND NOT(SampFlag1) THEN
+			SampFlag1 = 1
+        END
+RETURN
+---------------------------------------------------------------------------------------------------------------------------
+Process1:
+---------------------------------------------------------------------------------------------------------------------------
+    LOOP
+	iIdx = 1
+	WHILE iIdx LE iWinnerCount
+        bNewWinner = @FALSE
+        LOOP
+            sWinnerAccount = sDrawAccounts<RND( iDrawCount + 1 )>
+            GOSUB Process1.Loc
+        rCuDraw<Cu.Account.CuDraw.CuDrawPrizeWinAcct, iIdx> = sWinnerAccount
+        rCuDraw<Cu.Account.CuDraw.CuDrawPrizeWinMember, iIdx> = sCustomerId
+        rCuDraw<Cu.Account.CuDraw.CuDrawPrizeWinName, iIdx> = rCustomer<EB.CUS.SHORT.NAME>
+        rCuDraw<Cu.Account.CuDraw.CuDrawManualEntry, iIdx> = 'NO
+	iIdx = iIdx+1
+	REPEAT
+RETURN
+
+---------------------------------------------------------------------------------------------------------------------------
+Process1.Loc:
+---------------------------------------------------------------------------------------------------------------------------
+LOCATE sWinnerAccount IN sWinners SETTING sMark ELSE
+                    CALL F.READ( fnAccount, sWinnerAccount, rAccount, fvAccount, sError )
+                    sCustomerId = rAccount<AC.CUSTOMER>
+                    CALL F.READ( fnCustomer, sCustomerId, rCustomer, fvCustomer, sError )
+                    GOSUB Process1.cond1
+					GOSUB Process1.cond2
+END
+RETURN
+---------------------------------------------------------------------------------------------------------------------------
+Process1.cond1:
+---------------------------------------------------------------------------------------------------------------------------
+
+IF rCustomer<EB.CUS.LOCAL.REF, rCustomer.LDateOfDeath.Pos> NE '' THEN
+                        *CONTINUE
+						sWinnersFlag = 1
+END
+RETURN
+---------------------------------------------------------------------------------------------------------------------------
+Process1.cond2:
+---------------------------------------------------------------------------------------------------------------------------
+
+IF NOT(sWinnersFlag) THEN 
+                    sWinners<-1> = sWinnerAccount
+                    bNewWinner = @TRUE
+END
+RETURN
+---------------------------------------------------------------------------------------------------------------------------
+Process2:
+---------------------------------------------------------------------------------------------------------------------------
+
+
+IF sCorrAddress NE '' THEN
+				sCorrAddress := ', ':rCustomer<EB.CUS.LOCAL.REF, rCustomer.LPostAddr4.Pos>
+			END
+			ELSE
+				sCorrAddress = rCustomer<EB.CUS.LOCAL.REF, rCustomer.LPostAddr4.Pos>
+			END	
+RETURN
+
+---------------------------------------------------------------------------------------------------------------------------
+OpenFiles:
+---------------------------------------------------------------------------------------------------------------------------
+    sDrawAccountId = ''
+    sStartDate = ''
+    sEndDate = ''
+    iWinnerCount = ''
+    sWinners = ''
+    fnStmtEntry = 'F.STMT.ENTRY'
+    fvStmtEntry = ''
+    sStmtEntryId = ''
+    rStmtEntry = ''
+	fnStmtEntryDetail = 'F.STMT.ENTRY.DETAIL'
+    fvStmtEntryDetail = ''
+    sStmtEntryDetailId = ''
+    rStmtEntryDetail = ''
+    fnFundsTransfer = 'F.FUNDS.TRANSFER'
+    fvFundsTransfer = ''
+    sFtRef = ''
+    rFundsTransfer = ''
+    fnFundsTransferHis = 'F.FUNDS.TRANSFER$HIS'
+    fvFundsTransferHis = ''
+    fnAccount = 'F.ACCOUNT'
+    fvAccount = ''
+    rAccount = ''
+    fnCustomer = 'F.CUSTOMER'
+    fvCustomer = ''
+    sCustomerId = ''
+    rCustomer = ''
+    fnUser = 'F.USER'
+    fvUser = ''
+    GOSUB OpenFiles2
+RETRUN
+---------------------------------------------------------------------------------------------------------------------------
+OpenFiles3:
+---------------------------------------------------------------------------------------------------------------------------
+    sEmailMsg = '' ; sEmailAdr = '' ; sParamValues = '' ; sLibError = ''
+    sParamListId = 'DRAW.EMAIL'
+    sParamNames  = 'EMAIL'
+    Cu.Parameter.CuLibGetCuParameter(sParamListId, sParamNames, sParamValues, sLibError)
+    IF (sLibError NE '') THEN
+        sErrorInfo = ''
+        sErrorInfo<1> = ''
+        sErrorInfo<2> = 'GET.PARAM'
+        sErrorInfo<3> = sLibError
+        Cu.Account.LibCuErrorWrite('CU.B.DRAW', sErrorInfo)
+        RETURN
+    END ELSE
+        sEmailMsg = ''
+        sEmailAdr = sParamValues<1>
+    END  
+	GOSUB OpenFiles4
+RETURN
+
+---------------------------------------------------------------------------------------------------------------------------
+OpenFiles2:
+---------------------------------------------------------------------------------------------------------------------------
+sEntryIdList = ''
+    sDrawAccounts = '' ; iDrawCount = '' ; sWinnerAccount = '' ; iIdx = '' ; sMark = '' ; sError = ''
+	fnApplication 	= 'CUSTOMER'
+	sLocalFields<1, 1> = 'DECEASED.DATE'
+	sLocalFields<1, 2> = 'PO.BOX.NO'
+	sLocalFields<1, 3> = 'PO.SUBURB.TOWN'
+	sLocalFields<1, 4> = 'PO.CITY.MUNICIP'
+	sLocalFields<1, 5> = 'PO.PROV.STATE'
+	sLocalFields<1, 6> = 'PO.POST.CODE'
+	sLocalFields<1, 7> = 'L.PO.STATE.IE'
+	sLocalFields<1, 8> = 'L.GARDA.REG'
+	sLocalFields<1, 9> = 'CORRESPOND.NAME'
+	rPositionFields = ''
+	CALL MULTI.GET.LOC.REF(fnApplication, sLocalFields, rPositionFields)
+	rCustomer.LDateOfDeath.Pos = rPositionFields<1, 1>
+    rCustomer.LPostAddr1.Pos   = rPositionFields<1, 2>
+    rCustomer.LPostAddr2.Pos   = rPositionFields<1, 3>
+    rCustomer.LPostAddr3.Pos   = rPositionFields<1, 4>
+    rCustomer.LPostAddr4.Pos   = rPositionFields<1, 5>
+    rCustomer.LPostCode.Pos    = rPositionFields<1, 6>
+    rCustomer.LPostCoutnry.Pos = rPositionFields<1, 7>
+	rCustomer.LGardaRef.Pos    = rPositionFields<1, 8>
+	rCustomer.CorrName.Pos     = rPositionFields<1, 9>
+RETURN
+
+---------------------------------------------------------------------------------------------------------------------------
+OpenFiles4:
+---------------------------------------------------------------------------------------------------------------------------
+sParamListId = 'DRAW.PARAMETERS'
+    sParamNames  = 'PATH'
+    sParamValues = '' ; sLibError = ''
+    Cu.Parameter.CuLibGetCuParameter(sParamListId, sParamNames, sParamValues, sLibError) 
+	IF (sLibError NE '') THEN
+        sErrorInfo = ''
+        sErrorInfo<1> = ''
+        sErrorInfo<2> = 'GET.PARAM'
+        sErrorInfo<3> = sLibError
+        Cu.Account.LibCuErrorWrite('CU.B.DRAW', sErrorInfo)
+        RETURN
+    END ELSE
+		sExportPath = sParamValues<1>
+	END
+    fnTsaService = "F.TSA.SERVICE"
+    fvTsaService = ""
+    CALL OPF(fnTsaService, fvTsaService)
+    sError = '' ; rTsaService = ''
+    CALL F.READ(fnTsaService, BATCH.INFO<1>, rTsaService, fvTsaService, sError)
+    IF NOT(rTsaService) THEN
+        RETURN
+    END
+    sCompanyMnemonic = BATCH.INFO<1>[1, 3]
+    sCuDrawId = ''
+    sCuDrawId =  rTsaService<TS.TSM.ATTRIBUTE.VALUE, 1>
+    IF NOT(sCuDrawId) THEN
+        RETURN
+    END
+    sEmailMsg = '' ; sError = '' ; rCuDraw = ''
+    sEmailMsg = 'CU.DRAW record:':sCuDrawId
+    fnCuDraw = "F.CU.DRAW"
+    fvCuDraw = ""
+    CALL OPF(fnCuDraw, fvCuDraw)
+    CALL F.READU(fnCuDraw, sCuDrawId, rCuDraw, fvCuDraw, sError,"")
+    IF NOT(rCuDraw) THEN
+        RETURN
+    END
+RETURN
+
+
+---------------------------------------------------------------------------------------------------------------------------
+Export.Draw1:
+---------------------------------------------------------------------------------------------------------------------------
+
+ Cu.Account.LibWriteSeq( sExportPath, 'DU-':sCuDrawId, sDrawUsers, sError )
+    IF sError THEN
+        *CRT sError
+        sEmailMsg<-1> = sError
+        RETURN
+    END
+	sCmd ='aescrypt -e -p ':sCuDrawId:' ':sExportPath:'/DU-':sCuDrawId
+	CALL SYSTEM.CALL("START", "", sCmd, "", "" )
+    
+    sCmdRm = sExportPath:'/DU-':sCuDrawId
+	CALL SYSTEM.CALL("REMOVE", "", sCmdRm, "", "" )
+*   Export Draw Prizes
+    sPrizeList = ''
+	LOOP
+	iIdx = 1
+	WHILE iIdx LE iWinnerCount
+    *FOR iIdx = 1 TO iWinnerCount
+        sPrizeList<-1> = rCuDraw<Cu.Account.CuDraw.CuDrawPrizeDescription, iIdx>
+    *NEXT iIdx
+	iIdx = iIdx+1
+	REPEAT
+    Cu.Account.LibWriteSeq( sExportPath, 'DP-':sCuDrawId, sPrizeList, sError )
+    IF sError THEN
+        *CRT sError
+        sEmailMsg<-1> = sError
+        RETURN
+    END
+	sCmd = 'aescrypt -e -p ':sCuDrawId:' ':sExportPath:'/DP-':sCuDrawId
+	CALL SYSTEM.CALL("START", "", sCmd, "", "" )
+    
+    sCmdRm = sExportPath:'/DP-':sCuDrawId
+	CALL SYSTEM.CALL("REMOVE", "", sCmdRm, "", "" )
+*   Export Draw Entries
+    sMemberList = ''
+RETURN
+
+
+---------------------------------------------------------------------------------------------------------------------------
+Export.Draw2:
+---------------------------------------------------------------------------------------------------------------------------
+	LOOP
+	iIdx = 1
+	WHILE iIdx LE iDrawCount
+        sAccountId = sDrawAccounts<iIdx>
+        CALL F.READ( fnAccount, sAccountId, rAccount, fvAccount, sError )
+        sCustomerId = rAccount<AC.CUSTOMER>
+        CALL F.READ( fnCustomer, sCustomerId, rCustomer, fvCustomer, sError )
+    GOSUB Export.Draw2.Cond3
+    GOSUB Export.Draw2.Cond4
+	iIdx = iIdx+1
+	REPEAT
+    Cu.Account.LibWriteSeq( sExportPath, 'DE-':sCuDrawId, sMemberList, sError )
+    IF sError THEN
+        *CRT sError
+        sEmailMsg<-1> = sError
+        RETURN
+    END
+RETURN
+---------------------------------------------------------------------------------------------------------------------------
+Export.Draw2.Cond4:
+---------------------------------------------------------------------------------------------------------------------------
+
+        IF NOT(SampFlag) THEN
+        sMemberInfo  = sAccountId:';':sCustomerId:';':rCustomer<EB.CUS.LOCAL.REF, rCustomer.LGardaRef.Pos>:';':rCustomer<EB.CUS.LOCAL.REF, rCustomer.CorrName.Pos>:';'
+		sCorrAddress = ''
+		GOSUB Export.Draw2.Cond
+        GOSUB Export.Draw2.Cond2
+        sMemberInfo := sCorrAddress:';'
+		sLegalAddress = ''
+        sMemberInfo := sLegalAddress:';'
+        sMemberInfo := rCustomer<EB.CUS.BIRTH.INCORP.DATE>
+        sMemberList<-1> = sMemberInfo
+        END
+RETURN
+---------------------------------------------------------------------------------------------------------------------------
+Export.Draw2.Cond3:
+---------------------------------------------------------------------------------------------------------------------------
+
+        IF rCustomer<EB.CUS.LOCAL.REF, rCustomer.LDateOfDeath.Pos> NE '' THEN
+			SampFlag = 1
+        END
+RETURN
+---------------------------------------------------------------------------------------------------------------------------
+Export.Draw2.Cond:
+---------------------------------------------------------------------------------------------------------------------------
+IF rCustomer<EB.CUS.LOCAL.REF, rCustomer.LPostAddr3.Pos> NE '' THEN
+            sCorrAddress = rCustomer<EB.CUS.LOCAL.REF, rCustomer.LPostAddr3.Pos>
+END
+RETURN
+---------------------------------------------------------------------------------------------------------------------------
+Export.Draw2.Cond2:
+---------------------------------------------------------------------------------------------------------------------------
+
+IF rCustomer<EB.CUS.LOCAL.REF, rCustomer.LPostAddr4.Pos> NE '' THEN
+			GOSUB Process2
+        END
+RETURN
+---------------------------------------------------------------------------------------------------------------------------
+Export.Draw3:
+---------------------------------------------------------------------------------------------------------------------------
+sCmd = 'aescrypt -e -p ':sCuDrawId:' ':sExportPath:'/DE-':sCuDrawId
+	CALL SYSTEM.CALL("START", "", sCmd, "", "" )
+	
+	sCmdRm = sExportPath:'/DE-':sCuDrawId
+	CALL SYSTEM.CALL("REMOVE", "", sCmdRm, "", "" )
+    
+*   Create DRAW-FILES file
+    sNameList = ''
+    sNameList<1> = 'DD-':sCuDrawId:'.aes'
+    sNameList<2> = 'DU-':sCuDrawId:'.aes'
+    sNameList<3> = 'DP-':sCuDrawId:'.aes'
+    sNameList<4> = 'DE-':sCuDrawId:'.aes'
+    sNameList<5> = 'DW-':sCuDrawId:'.aes'
+    sNameList<6> = sCuDrawId
+    Cu.Account.LibWriteSeq( sExportPath, 'DRAW-FILES', sNameList, sError )
+    IF sError THEN
+        *CRT sError
+        sEmailMsg<-1> = sError
+        RETURN
+    END
+	sCmd = 'aescrypt -e -p 1KqAeoCZglLu6 ':sExportPath:'/DRAW-FILES'
+	CALL SYSTEM.CALL("START", "", sCmd, "", "" )
+    
+	sCmdRm = sExportPath:'/DRAW-FILES'
+	CALL SYSTEM.CALL("REMOVE", "", sCmdRm, "", "" )
+*   Get hash info
+    sCmd = 'DOS /c powershell Get-FileHash ':sExportPath:'/DD-':sCuDrawId:'.aes -Algorithm SHA1'
+	sCmdOutput = ''
+	EXECUTE sCmd CAPTURING sCmdOutput
+	sCmdOutput = TRIM(sCmdOutput, '', "D") 
+    sHash = sCmdOutput[' ', 8, 1]
+    rCuDraw<Cu.Account.CuDraw.CuDrawFileHash, 1> = 'DD-':sCuDrawId:'.aes'
+    rCuDraw<Cu.Account.CuDraw.CuDrawFileHash, 2> = sHash
+    sCmd = 'DOS /c powershell Get-FileHash ':sExportPath:'/DU-':sCuDrawId:'.aes -Algorithm SHA1'
+	sCmdOutput = ''
+	EXECUTE sCmd CAPTURING sCmdOutput
+    sCmdOutput = TRIM(sCmdOutput, '', "D") 
+    sHash = sCmdOutput[' ', 8, 1]
+    rCuDraw<Cu.Account.CuDraw.CuDrawFileHash, 3> = 'DU-':sCuDrawId:'.aes'
+    rCuDraw<Cu.Account.CuDraw.CuDrawFileHash, 4> = sHash
+RETURN
+---------------------------------------------------------------------------------------------------------------------------
+Export.Draw4:
+---------------------------------------------------------------------------------------------------------------------------
+
+
+    sCmd = 'DOS /c powershell Get-FileHash ':sExportPath:'/DP-':sCuDrawId:'.aes -Algorithm SHA1'
+	sCmdOutput = ''
+	EXECUTE sCmd CAPTURING sCmdOutput
+    sCmdOutput = TRIM(sCmdOutput, '', "D") 
+    sHash = sCmdOutput[' ', 8, 1]
+    rCuDraw<Cu.Account.CuDraw.CuDrawFileHash, 5> = 'DP-':sCuDrawId:'.aes'
+    rCuDraw<Cu.Account.CuDraw.CuDrawFileHash, 6> = sHash
+    sCmd = 'DOS /c powershell Get-FileHash ':sExportPath:'/DE-':sCuDrawId:'.aes -Algorithm SHA1'
+	sCmdOutput = ''
+	EXECUTE sCmd CAPTURING sCmdOutput
+    sCmdOutput = TRIM(sCmdOutput, '', "D") 
+    sHash = sCmdOutput[' ', 8, 1]
+    rCuDraw<Cu.Account.CuDraw.CuDrawFileHash, 7> = 'DE-':sCuDrawId:'.aes'
+    rCuDraw<Cu.Account.CuDraw.CuDrawFileHash, 8> = sHash
+    CALL F.WRITE(fnCuDraw, sCuDrawId, rCuDraw)
+	CALL F.RELEASE(fnCuDraw,sCuDrawId,fvCuDraw)
+RETURN
+
+---------------------------------------------------------------------------------------------------------------------------
+CuDraw.Loc:
+---------------------------------------------------------------------------------------------------------------------------
+
+            LOCATE rFundsTransfer<FT.DEBIT.ACCT.NO> IN sDrawAccounts SETTING iIdx ELSE
+                sDrawAccounts<-1> = rFundsTransfer<FT.DEBIT.ACCT.NO>
+                iDrawCount += 1
+            END
+			
+RETURN

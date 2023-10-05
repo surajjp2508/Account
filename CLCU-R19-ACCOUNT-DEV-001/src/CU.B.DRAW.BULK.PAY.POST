@@ -1,0 +1,123 @@
+* @ValidationCode : MjotOTEyMTkwMjI5OkNwMTI1MjoxNTk4NjIxOTA0ODM4Ok1hZ2k6LTE6LTE6MDowOmZhbHNlOk4vQTpSMTlfU1AyNS4wOi0xOi0x
+* @ValidationInfo : Timestamp         : 28 Aug 2020 16:38:24
+* @ValidationInfo : Encoding          : Cp1252
+* @ValidationInfo : User Name         : Magi
+* @ValidationInfo : Nb tests success  : N/A
+* @ValidationInfo : Nb tests failure  : N/A
+* @ValidationInfo : Rating            : N/A
+* @ValidationInfo : Coverage          : N/A
+* @ValidationInfo : Strict flag       : N/A
+* @ValidationInfo : Bypass GateKeeper : false
+* @ValidationInfo : Compiler Version  : R19_SP25.0
+$PACKAGE Cu.Account
+*===============================================================================
+SUBROUTINE CU.B.DRAW.BULK.PAY.POST
+*===============================================================================
+* Company Name    : CUP
+* Developed By    : Magdalena Pavlova
+* Arguments In    : CU.PRIZE.DRAW Id
+* Arguments Out   : n\a
+* Attached To     : n\a
+* Attached As     : n\a
+*-----------------------------------------------------------------------------
+* Description     : CU.B.DRAW.BULK.PAY service routine
+*-----------------------------------------------------------------------------
+* Modification History:
+*------------------------
+* Date              Who                Reference                 Description
+*-----------------------------------------------------------------------------
+* 22-07-2020        Magdalena Pavlova                            Initial Version
+*===============================================================================
+
+    $USING EB.SystemTables
+    $USING EB.ErrorProcessing
+    $USING EB.DataAccess
+    $USING EB.Service
+    $USING EB.Utility
+    $USING FT.Contract
+    $USING EB.Foundation
+    $USING EB.Interface
+    $USING Cu.Parameter
+   
+    GOSUB Initialise
+    GOSUB Process
+
+RETURN
+
+Initialise:
+*-------------------------------------------------------------------------------
+
+    fnContraAccTransfer = "F.CU.CONTRA.ACC.TRANSFER"
+    fvContraAccTransfer = ""
+    EB.DataAccess.Opf(fnContraAccTransfer, fvContraAccTransfer)
+   
+    sTodayId = EB.SystemTables.getToday()
+
+    sIntAccount = ''
+    sSuspAccount = ''
+    sPayType    = ''
+    sOrdCust = ''
+    
+    sParamNameId = 'DRAW.BULK.PARAMETERS'
+    sParamName <1>  = 'SUSP.ACCOUNT'
+    sParamName <2>  = 'BULK.ACCOUNT'
+    sParamName <3>  = 'FT.TYPE.SUSP'
+    sParamName <4>  = 'ORDER.CUST'
+    
+    sParamValues = ''
+    sError.param = ''
+
+    Cu.Parameter.CuLibGetCuParameter( sParamNameId, sParamName, sParamValues, sError.param )
+    
+    sSuspAccount  = sParamValues<1>
+    sIntAccount = sParamValues<2>
+    sPayType    = sParamValues<3>
+    sOrdCust    = sParamValues<4>
+   
+    sFtAmt = ''
+    
+
+RETURN
+
+Process:
+*-------------------------------------------------------------------------------
+
+    rContraAccTransfer = ''
+    errContraAccTransfer   = ''
+    
+    EB.DataAccess.FRead(fnContraAccTransfer ,sTodayId, rContraAccTransfer, fvContraAccTransfer,errContraAccTransfer)
+    sNoFt = DCOUNT(rContraAccTransfer, @FM)
+    
+*Avoid using FOR...NEXT loops. use the more efficient LOOP...REMOVE syntax
+	LOOP
+	iCount = 1
+	WHILE iCount LE sNoFt											*, Added LOOP while instead of for
+	*FOR iCount = 1 TO sNoFt
+        sFtAmt = FIELD( rContraAccTransfer<iCount>, '-', 2)
+        sFtAmount += sFtAmt
+    REPEAT															*, Added LOOP while instead of for
+	*NEXT
+    sAppication = 'FUNDS.TRANSFER'
+    sFunction   = 'I'
+    sProcess    = 'PROCESS'
+    sVersion    = 'FUNDS.TRANSFER,DRAW.OFS'
+    sGtsMode    = ''
+    sNoOfAuth   = '0'
+    sFtId       = ''
+    sOfsSource  = 'FT.DRAW.S'
+    rFtRecord<FT.Contract.FundsTransfer.TransactionType> = sPayType
+    rFtRecord<FT.Contract.FundsTransfer.DebitAcctNo> = sIntAccount
+    rFtRecord<FT.Contract.FundsTransfer.DebitCurrency> = EB.SystemTables.getLccy()
+    rFtRecord<FT.Contract.FundsTransfer.DebitAmount> = sFtAmount
+    rFtRecord<FT.Contract.FundsTransfer.CreditAcctNo> = sSuspAccount
+    rFtRecord<FT.Contract.FundsTransfer.OrderingCust> = sOrdCust
+    
+    rOfsRecord = ''
+
+    EB.Foundation.OfsBuildRecord(sAppication, sFunction, sProcess, sVersion, sGtsMode, sNoOfAuth, sFtId, rFtRecord, rOfsRecord)
+    EB.Interface.OfsPostMessage(rOfsRecord, '', sOfsSource, '')
+
+RETURN
+
+END
+

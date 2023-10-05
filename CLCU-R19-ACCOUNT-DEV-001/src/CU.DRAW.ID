@@ -1,0 +1,44 @@
+$PACKAGE Cu.Account
+*-----------------------------------------------------------------------------
+* <Rating>0</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE CU.DRAW.ID
+*===============================================================================
+* Company Name    : SRGCU
+* Developed By    : Magdalena Pavlova
+* Arguments In    : n\a
+* Arguments Out   : n\a
+* Attached To     : n\a
+* Attached As     : n\a
+*-----------------------------------------------------------------------------
+* Description     : 
+*-----------------------------------------------------------------------------
+* Modification History:
+*------------------------
+* Date              Who                Reference                 Description
+*-----------------------------------------------------------------------------
+* 20-03-2019        Magdalena Pavlova                            Initial Version
+*===============================================================================
+
+    $INSERT I_COMMON
+    $INSERT I_EQUATE
+
+
+    IF NOT( INDEX( ID.NEW, '-', 1 ) ) THEN
+        E = 'ID has to be in format <desc>-<date>.'
+        RETURN
+    END
+
+    IF COUNT( ID.NEW, '-' ) GT 1 THEN
+        E = 'Only one hyphen allowed in the ID.'
+        RETURN
+    END
+    
+    sPrefix = ID.NEW['-', 1, 1]
+    sDate = ID.NEW['-', 2, 1]
+    
+    IF ( LEN( sDate ) NE 8 ) OR NOT( NUM( sDate ) ) THEN
+        E = 'Date part of id invalid.'
+    END
+
+    RETURN
