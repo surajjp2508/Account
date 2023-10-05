@@ -347,3 +347,91 @@ private method cuBDrawBulkPayPost (
     jBC: CU.B.DRAW.BULK.PAY.POST
 }
 
+
+private method cuValSignCheck (
+)
+{
+    jBC: CU.VAL.SIGN.CHECK
+}
+
+module method ClcuSignDetails()
+{
+    jBC: CLCU.SIGN.DETAILS
+}
+
+module method ClcuSignDetailsFields()
+{
+    jBC: CLCU.SIGN.DETAILS.FIELDS
+}
+
+
+public table ClcuSignDetails {
+    t24: CLCU.SIGN.DETAILS
+    fields:{
+        AccountId(ACCOUNT.ID) = 1
+        MemberId(MEMBER.ID) = 2
+        SignMemNoNam(SIGN.MEM.NO.NAM) = 3
+        SignTitle(SIGN.TITLE) = 4
+        SignFirstNam(SIGN.FIRST.NAM) = 5
+        SignMidNam(SIGN.MID.NAM) = 6
+        SignSurNam(SIGN.SUR.NAM) = 7
+        SignAdd(SIGN.ADD) = 8
+        SignTown(SIGN.TOWN) = 9
+        SignCounty(SIGN.COUNTY) = 10
+        SignCountry(SIGN.COUNTRY) = 11
+        SignEircode(SIGN.EIRCODE) = 12
+        SignPhNo(SIGN.PH.NO) = 13
+        SignActStartDate(ACT.START.DATE) = 14
+        SignActEndDate(ACT.END.DATE) = 15
+        SignRelation(SIGN.RELATION) = 16
+    }   
+}
+
+private method cuAutSignDetUpd (
+)
+{
+    jBC: CU.AUT.SIGN.DET.UPD
+}
+
+
+
+
+private method cuInpSignCheck (
+)
+{
+   jBC: CU.INP.SIGN.CHECK
+}
+
+
+
+private method doXxConvAcCustNs (
+   INOUT sInRecordId string,
+   INOUT rInRecord string,
+   INOUT sInOutValue string
+)
+{
+   jBC: DO.XX.CONV.AC.CUST.NS
+}
+
+
+
+private method doXxConvAcCustTs (
+   INOUT sInRecordId string,
+   INOUT rInRecord string,
+   INOUT sInOutValue string
+)
+{
+   jBC: DO.XX.CONV.AC.CUST.TS
+}
+
+
+
+private method doXxConvAcCustTns (
+   INOUT sInRecordId string,
+   INOUT rInRecord string,
+   INOUT sInOutValue string
+)
+{
+   jBC: DO.XX.CONV.AC.CUST.TNS
+}
+
