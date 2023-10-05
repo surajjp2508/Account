@@ -10,7 +10,7 @@ $PACKAGE Cu.Account
 * Arguments In    : n\a
 * Arguments Out   : n\a
 * Attached To     : Batch BNK/CU.DRAW.SERVICE
-* Attached As     : Batch routine
+* Attached As     : Batch-routine
 *-----------------------------------------------------------------------------
 * Modification History:
 *------------------------
