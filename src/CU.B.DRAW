@@ -5,12 +5,12 @@ $PACKAGE Cu.Account
     SUBROUTINE CU.B.DRAW
 *===============================================================================
 * Company Name    : SRGCU
-* Developed By    : Magdalena Pavlova R17
+* Developed By    : Magdalena R17
 *				  : Lukasz Czechowicz R08
 * Arguments In    : n\a
 * Arguments Out   : n\a
 * Attached To     : Batch BNK/CU.DRAW.SERVICE
-* Attached As     : Batch routine
+* Attached As     : Batch-routine
 *-----------------------------------------------------------------------------
 * Modification History:
 *------------------------
