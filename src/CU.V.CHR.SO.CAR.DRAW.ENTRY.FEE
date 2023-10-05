@@ -1,0 +1,182 @@
+$PACKAGE Cu.Account
+*-----------------------------------------------------------------------------
+* <Rating>-30</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE CU.V.CHR.SO.CAR.DRAW.ENTRY.FEE
+*===============================================================================
+* Company Name    : SRGCU
+* Developed By    : Magdalena Pavlova
+* Arguments In    : n\a
+* Arguments Out   : n\a
+* Attached To     : n\a
+* Attached As     : n\a
+*-----------------------------------------------------------------------------
+* Description     : Initial check and defaults for STO,CU.DRAW
+*-----------------------------------------------------------------------------
+* Modification History:
+*------------------------
+* Date              Who                Reference                 Description
+*-----------------------------------------------------------------------------
+* 28-03-2019        Magdalena Pavlova                            Initial Version
+* 16-07-2020		Magdalena Pavlova							 Changes per CUP
+*===============================================================================
+    $INSERT I_COMMON
+	$INSERT I_EQUATE
+    $INSERT I_F.ACCOUNT
+    $INSERT I_F.CUSTOMER
+    $INSERT I_F.STANDING.ORDER
+	$INSERT I_F.DEPT.ACCT.OFFICER
+    $USING Cu.Parameter
+ 
+    
+    GOSUB Initialise
+    GOSUB Process
+	GOSUB Defaults
+
+    RETURN
+
+
+Initialise:
+*-------------------------------------------------------------------------------
+    
+	fnAccount = 'F.ACCOUNT'
+    fvAccount = ''
+    CALL OPF( fnAccount, fvAccount )
+	
+	sAccountId = ''
+	
+    fnCustomer = 'F.CUSTOMER'
+    fvCustomer = ''
+	CALL OPF( fnCustomer, fvCustomer )
+    
+	sCustomerId = ''
+	
+	fnOfficer = 'F.DEPT.ACCT.OFFICER'
+    fvOfficer = ''
+	CALL OPF( fnOfficer, fvOfficer )
+	
+	sOfficerId    = ''
+	sOfficerUnion = ''
+	
+	fnStandingOrder = 'F.STANDING.ORDER'
+    fvStandingOrder = ''
+    CALL OPF( fnStandingOrder, fvStandingOrder )
+	
+	fnPrizeDraw= 'F.CU.PRIZE.DRAW' 
+	fvPrizeDraw = ''
+	CALL OPF( fnPrizeDraw, fvPrizeDraw)
+	
+	fnApplication 	= 'CUSTOMER'
+	sLocalFields 	= 'AGE'
+	rPositionFields = ''
+	CALL MULTI.GET.LOC.REF(fnApplication, sLocalFields, rPositionFields)
+	
+	rCustomer.LAge.Pos = rPositionFields<1, 1>
+
+    RETURN
+
+
+Process:
+*-------------------------------------------------------------------------------
+    
+	sAccountId = ID.NEW['.', 1, 1]
+    rAccount = ''
+	sError   = ''
+    CALL F.READ( fnAccount, sAccountId, rAccount, fvAccount, sError )
+
+    IF rAccount<AC.CLOSURE.DATE> NE '' THEN
+        E = 'ST-DRAW.CLOSED.ACCT'
+		CALL ERR
+        RETURN
+    END
+
+    sCustomerId = rAccount<AC.CUSTOMER>
+	rCustomer = ''
+	sError    = ''
+    CALL F.READ( fnCustomer, sCustomerId, rCustomer, fvCustomer, sError )
+
+    IF rCustomer<EB.CUS.LOCAL.REF, rCustomer.LAge.Pos> LT 18 THEN
+        E = 'ST-DRAW.MEMBER.AGE'
+		CALL ERR
+        RETURN
+    END
+	
+	sOfficerId = rCustomer<EB.CUS.ACCOUNT.OFFICER>
+	rOfficer = ''
+	sError    = ''
+    CALL F.READ( fnOfficer, sOfficerId, rOfficer, fvOfficer, sError )
+	
+	sOfficerUnion = rOfficer<EB.DAO.DELIVERY.POINT>
+
+	sPrizeDrawId = sCustomerId
+	rPrizeDraw   = ''
+	eRRPrizeDraw = ''
+	
+	CALL F.READ (fnPrizeDraw, sPrizeDrawId, rPrizeDraw, fvPrizeDraw, eRRPrizeDraw)
+	IF rPrizeDraw THEN
+		sStoNum = DCOUNT (rPrizeDraw, @FM)
+		FOR I = 1 TO sStoNum
+			sStandingOrderId = rPrizeDraw<I>
+			rStandingOrder   = ''
+			eRRStandingOrder = ''
+			CALL F.READ (fnStandingOrder, sStandingOrderId, rStandingOrder, fvStandingOrder, eRRStandingOrder)
+			IF rStandingOrder THEN
+*Exceed Max Levels of Nesting Deeper than Three
+				GOSUB Process2
+			END
+		NEXT I
+	END
+
+    RETURN
+
+*-------------------------------------------------------------------------------
+Process2:
+*-------------------------------------------------------------------------------
+IF rStandingOrder<STO.CURRENT.FREQUENCY>[1, 6] GE TODAY[1, 6] THEN
+		E = 'ST-DRAW.SECOND.DRAW'
+		CALL ERR
+		RETURN
+END
+RETURN
+*-------------------------------------------------------------------------------
+Defaults:
+*-------------------------------------------------------------------------------
+
+	sDrawAmount    = ''
+	sPodAllowed    = ''
+	sDrawAccount   = ''
+	sDrawFrequency = ''
+	
+	sParamNameId = 'DRAW.PARAMETERS'
+	sParamName <1>  = 'PRODUCT.ALLW'
+	sParamName <2>  = 'DRAW.ACCOUNT'
+	IF sOfficerUnion THEN
+		sParamName <3>  = sOfficerUnion
+	END	
+    sParamValues = ''
+    sError.param = ''
+
+    Cu.Parameter.CuLibGetCuParameter( sParamNameId, sParamName, sParamValues, sError.param )
+	
+	sPodAllowed  = sParamValues<1>
+	sDrawAccount = sParamValues<2, 1>
+	IF sOfficerUnion THEN
+		sDrawFrequency = RAISE(sParamValues<3, 1>)
+		sDrawAmount    = RAISE(sParamValues<3, 2>)
+	END
+	
+    IF NOT(rAccount<AC.CATEGORY> MATCHES sPodAllowed) THEN
+        E = 'ST-DRAW.SHARE.ACCT'
+		CALL ERR
+        RETURN
+    END
+    
+	R.NEW( STO.CURRENCY )           = rAccount<AC.CURRENCY>
+    R.NEW( STO.CURRENT.AMOUNT.BAL ) = sDrawAmount
+	R.NEW( STO.CPTY.ACCT.NO )       = sDrawAccount
+    R.NEW( STO.ORDERING.CUST )      = sCustomerId
+	R.NEW(STO.CURRENT.FREQUENCY)[10,99] = sDrawFrequency
+	
+	RETURN
+	
+END

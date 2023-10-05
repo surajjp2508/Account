@@ -1,0 +1,64 @@
+$PACKAGE Cu.Account
+*-----------------------------------------------------------------------------
+* <Rating>60</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE CU.E.NOF.DRAW.WINNERS( sOutIdList )
+*===============================================================================
+* Company Name    : SRGCU
+* Developed By    : Magdalena Pavlova R17
+*				  : Lukasz Czechowicz R08
+* Arguments In    : n\a
+* Arguments Out   : n\a
+* Attached To     : n\a
+* Attached As     : n\a
+*-----------------------------------------------------------------------------
+* Description     : This enquiry nofile routine is attached to CU.DRAW standard selection record.
+* 					It lists winners of the last draw (id of the last draw is stored on F.LOCKING
+*				    file under id <comp_mne>-CU.DRAW.LAST), but also allows to specify which
+* 					draw to display by passing DRAW.ID in the selection criteria.
+*-----------------------------------------------------------------------------
+* Modification History:
+*------------------------
+* Date              Who                Reference                 Description
+*-----------------------------------------------------------------------------
+* 22-03-2019        Magdalena Pavlova                            Initial Version
+*===============================================================================
+
+    $INSERT I_COMMON
+    $INSERT I_ENQUIRY.COMMON
+    *$INSERT I_CU.COMMON
+	$USING Cu.Parameter
+
+    sSelDrawId = ''
+    iIdx = 0
+
+
+Main:
+*-------------------------------------------------------------------------------
+    GOSUB Initialise
+    GOSUB Process
+
+    RETURN
+
+
+Initialise:
+*-------------------------------------------------------------------------------
+    sOutIdList = ''
+
+    LOCATE 'CU.DRAW.ID' IN D.FIELDS<1> SETTING iIdx THEN
+        sSelDrawId = D.RANGE.AND.VALUE<iIdx>
+    END
+
+    RETURN
+
+
+Process:
+*-------------------------------------------------------------------------------
+    IF sSelDrawId EQ '' THEN 
+        sLockingId = R.COMPANY( EB.COM.MNEMONIC ) : '-CU.DRAW.LAST'
+        *READ sSelDrawId FROM F.LOCKING, sLockingId THEN NULL
+    END
+
+    sOutIdList = sSelDrawId
+
+    RETURN

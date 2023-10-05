@@ -1,0 +1,172 @@
+$PACKAGE Cu.Account
+*-----------------------------------------------------------------------------
+* <Rating>140</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE CU.B.GET.CAR.DRAW.LIST.TODAY
+*===============================================================================
+* Company Name    : SRGCU
+* Developed By    : Magdalena Pavlova R17
+*				  : Lukasz Czechowicz R08
+* Arguments In    : n\a
+* Arguments Out   : n\a
+* Attached To     : n\a
+* Attached As     : n\a
+*-----------------------------------------------------------------------------
+* Description     : Batch job routine to generate Draw list for today
+*-----------------------------------------------------------------------------
+* Modification History:
+*------------------------
+* Date              Who                Reference                 Description
+*-----------------------------------------------------------------------------
+* 22-03-2019        Magdalena Pavlova                            Initial Version
+*===============================================================================
+
+    $INSERT I_COMMON
+    $INSERT I_EQUATE
+    $INSERT I_F.STMT.ENTRY
+    $INSERT I_F.ACCOUNT
+    $INSERT I_F.FUNDS.TRANSFER
+    $USING Cu.Parameter
+
+	GOSUB Initialise
+    
+	IF sIntError THEN
+	
+        RETURN
+    END
+    
+	GOSUB Process
+	
+	RETURN
+
+Initialise:
+*-------------------------------------------------------------------------------	
+	
+    iList     = '' 
+	iCount    = ''
+    sDelim    = '|' 
+	sOutput   = ''
+	sIntError = ''
+	
+    fnStmtEntry = 'F.STMT.ENTRY' 
+	fvStmtEntry = ''
+	
+	fnStmtEntryDetail = 'F.STMT.ENTRY.DETAIL'
+	fvStmtEntryDetail = ''
+	
+    fnAccount = 'F.ACCOUNT' 
+	fvAccount = ''
+    
+    fnFundsTransfer = 'F.FUNDS.TRANSFER' 
+	fvFundsTransfer = ''
+    
+    OPEN "&SAVEDLISTS&" TO fvSavedLists ELSE
+        sIntError := "Unable to open &SAVEDLISTS& directory."
+        RETURN
+    END
+	
+	sAccount     = ''
+	sParamListId = 'DRAW.PARAMETERS'
+	sParamName   = 'DRAW.ACCOUNT'
+    sParamValues = ''
+    sError.param = ''
+    sRestFlagPernament = ''
+    
+	Cu.Parameter.CuLibGetCuParameter(sParamListId , sParamName, sParamValues, sError.param )
+    IF sError.param THEN
+        bFatalError = 1
+        sErrorLog<-1> = 'DRAW.PARAMETERS ' :sError.param
+        RETURN
+    END
+	
+	sAccount = sParamValues
+	
+	RETURN
+	
+Process:
+*-------------------------------------------------------------------------------
+    
+	CALL OPF(fnStmtEntry, fvStmtEntry)
+	CALL OPF(fnStmtEntryDetail, fvStmtEntryDetail)
+	CALL OPF(fnAccount, fvAccount)
+	CALL OPF(fnFundsTransfer, fvFundsTransfer)
+
+	sOutput<-1> = 'Stmt Entry ID':sDelim:'Account':sDelim:'Value Date':sDelim:'Amount':sDelim:'Txn Code':sDelim:'Trans Reference':sDelim:'Our Reference':sDelim:'Old Acct No':sDelim:'Consol Key':sDelim:'Product Category':sDelim:'Dr Acct No'
+    
+	sStartDate   = TODAY
+	sEndDate     = TODAY
+	sEntryIdList = ''
+	sError       = ''
+	Cu.Account.LibGetAcStmtEntries( sAccount, sStartDate, sEndDate, sEntryIdList, sError )
+
+    *IF sEntryIdList THEN
+        iCount = DCOUNT(sEntryIdList, @FM)
+*Avoid using FOR...NEXT loops. use the more efficient LOOP...REMOVE syntax.
+        *FOR i = 1 TO iCount
+		LOOP
+		i = 1
+		WHILE i LE iCount								*, Added LOOP while instead of for.
+            sStmtId = sEntryIdList<i>
+			rStmtEntry = ''
+            CALL F.READ(fnStmtEntry, sStmtId, rStmtEntry, fvStmtEntry, StmtErr)
+			IF StmtErr THEN
+				rStmtEntry = ''
+				CALL F.READ(fnStmtEntryDetail, sStmtId, rStmtEntry, fvStmtEntryDetail, StmtErr)
+			END
+            IF rStmtEntry THEN
+                sAccount = rStmtEntry<AC.STE.ACCOUNT.NUMBER>
+                CALL F.READ(fnAccount, sAccount, rAccount, fvAccount, AccErr)
+*-Exceed Max Levels of Nesting Deeper than Three so added gosub.				
+				GOSUB Process2
+				RETURN
+                sValueDate    = rStmtEntry<AC.STE.VALUE.DATE>
+                sAmount       = rStmtEntry<AC.STE.AMOUNT.LCY>
+                sTxnCode      = rStmtEntry<AC.STE.TRANSACTION.CODE>
+                sReference    = rStmtEntry<AC.STE.TRANS.REFERENCE>
+                sOurReference = rStmtEntry<AC.STE.OUR.REFERENCE>
+                sConsolKey 	  = rStmtEntry<AC.STE.CONSOL.KEY>
+                sProdCategory = rStmtEntry<AC.STE.PRODUCT.CATEGORY>
+				
+                CALL F.READ(fnFundsTransfer, sOurReference, rFundsTransfer, fvFundsTransfer, FTErr)
+*-Exceed Max Levels of Nesting Deeper than Three
+				GOSUB Process3
+				RETURN
+                sOutput<-1> = sStmtId:sDelim:sAccount:sDelim:sValueDate:sDelim:sAmount:sDelim:sTxnCode:sDelim:sReference:sDelim:sOurReference:sDelim:sOldId:sDelim:sConsolKey:sDelim:sProdCategory:sDelim:sDrAcctNo
+            END
+        i = i+1
+		REPEAT													*, Added LOOP while instead of for.
+		*NEXT i
+    *END
+
+    WRITE sOutput TO fvSavedLists, "CAR.DRAW.LIST.TODAY.txt" ON ERROR      *, Writing to directory so no need of locking.
+        sIntError := "Unable to write Array list to &SAVEDLISTS&"
+        RETURN
+    END
+
+    RETURN
+END
+
+
+*-----------------------------------------------------------------------------------------------------------------------------
+GOSUB Process2:
+*-----------------------------------------------------------------------------------------------------------------------------
+
+                IF rAccount THEN
+                    LOCATE 'OLD.ACCT' IN rAccount<AC.ALT.ACCT.TYPE,1> SETTING sPos THEN
+                        sOldId = rAccount<AC.ALT.ACCT.ID, sPos>
+                        sPos   = ''
+                    END
+                END
+RETURN
+
+
+
+*-----------------------------------------------------------------------------------------------------------------------------
+GOSUB Process3:
+*-----------------------------------------------------------------------------------------------------------------------------
+
+
+                IF rFundsTransfer THEN
+                    sDrAcctNo = rFundsTransfer<FT.DEBIT.ACCT.NO>
+                END
+RETURN

@@ -1,0 +1,66 @@
+$PACKAGE Cu.Account
+*-----------------------------------------------------------------------------
+* <Rating>-40</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE CU.E.BLD.DRAW.ACCOUNT.LIST( ENQ.DATA )
+*===============================================================================
+* Company Name    : SRGCU
+* Developed By    : Magdalena Pavlova
+* Arguments In    : n\a
+* Arguments Out   : DRAW Account list
+* Attached To     : n\a
+* Attached As     : n\a
+*-----------------------------------------------------------------------------
+* Description     : 
+*-----------------------------------------------------------------------------
+* Modification History:
+*------------------------
+* Date              Who                Reference                 Description
+*-----------------------------------------------------------------------------
+* 25-03-2019        Magdalena Pavlova                            Initial Version
+*===============================================================================
+
+    $INSERT I_COMMON
+	$INSERT I_EQUATE
+    $INSERT I_ENQUIRY.COMMON
+    $USING Cu.Parameter
+
+    GOSUB Initialise
+    GOSUB Process
+
+    RETURN
+
+
+Initialise:
+*-------------------------------------------------------------------------------
+	
+	sSelCategories = ''
+    sParamNameId = 'DRAW.PARAMETERS'
+	sParamName   = 'DRAW.CAT.CODE'
+    sParamValues = ''
+    sError.param = ''
+	
+    Cu.Parameter.CuLibGetCuParameter( sParamNameId, sParamName, sParamValues, sError.param )
+    IF sError.param THEN
+        bFatalError = 1
+        sErrorLog<-1> = 'DRAW.PARAMETERS ' :sError.param
+        RETURN
+    END
+	sSelCategories = CHANGE (sParamValues, @SM, '" "')
+
+    RETURN
+
+
+Process:
+*-------------------------------------------------------------------------------
+
+	ENQ.DATA<2,-1> = 'CATEGORY'
+	ENQ.DATA<3,-1> = 'EQ'
+	ENQ.DATA<4,-1> =  sSelCategories
+	
+	ENQ.DATA<2,-1> = 'CLOSURE.DATE'
+	ENQ.DATA<3,-1> = 'EQ'
+	ENQ.DATA<4,-1> = ''
+	
+
+    RETURN

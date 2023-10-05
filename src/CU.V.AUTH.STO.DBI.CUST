@@ -1,0 +1,52 @@
+$PACKAGE Cu.Account
+*-----------------------------------------------------------------------------
+* <Rating>0</Rating>
+*-----------------------------------------------------------------------------
+    SUBROUTINE CU.V.AUTH.STO.DBI.CUST
+*===============================================================================
+* Company Name    : CUP
+* Developed By    : Magdalena Pavlova
+* Arguments In    : n\a
+* Arguments Out   : n\a
+* Attached To     : n\a
+* Attached As     : n\a
+*-----------------------------------------------------------------------------
+* Description     : 
+*-----------------------------------------------------------------------------
+* Modification History:
+*------------------------
+* Date              Who                Reference                 Description
+*-----------------------------------------------------------------------------
+* 17-07-2020        Magdalena Pavlova                            Initial Version
+*===============================================================================
+
+    $INSERT I_COMMON
+    $INSERT I_EQUATE
+	$INSERT I_F.STANDING.ORDER
+
+
+	fnDbiSto= 'F.CU.DBI.STO' 
+	fvDbiSto = ''
+	CALL OPF( fnDbiSto, fvDbiSto)
+	
+	fnStandingOrder = 'F.STANDING.ORDER'
+    fvStandingOrder = ''
+    CALL OPF( fnStandingOrder, fvStandingOrder )
+	
+	sDbiStoId = R.NEW(STO.ORDERING.CUST)
+	rDbiSto   = ''
+	eRRDbiSto = ''
+*Added relevent locking on File :CU.DBI.STO	
+	CALL F.READU (fnDbiSto, sDbiStoId, rDbiSto, fvDbiSto, eRRDbiSto,'')
+	IF eRRDbiSto THEN
+		rDbiSto = ID.NEW	
+	END ELSE
+		rDbiSto<-1>   = ID.NEW
+	END
+	
+	CALL F.WRITE(fnDbiSto, sDbiStoId, rDbiSto)
+	CALL F.RELEASE(fnDbiSto,sDbiStoId,fvDbiSto)
+    RETURN
+	
+	END
+

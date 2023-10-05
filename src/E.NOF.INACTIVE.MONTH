@@ -1,0 +1,108 @@
+$PACKAGE Cu.Account
+SUBROUTINE E.NOF.INACTIVE.MONTH(yInActive)
+
+$USING EB.SystemTables
+$USING EB.DataAccess
+$USING Cu.Parameter
+$USING AC.AccountOpening
+
+
+GOSUB Openfiles
+GOSUB Initialise
+GOSUB Process
+
+RETURN
+
+*----------------------------------------------------------------------------
+Openfiles:
+
+FnCuParameter = 'F.CU.PARAMETER'
+FCuParameter = ''
+EB.DataAccess.Opf(FnCuParameter,FCuParameter)
+
+fnAccount = 'F.ACCOUNT'
+fvAccount = ''
+EB.DataAccess.Opf(fnAccount,fvAccount)
+
+*----------------------------------------------------------------------------
+Initialise:
+yDates = ''
+sParamNameId = 'ALL-ACCT.INACTIVE.MNTHS'
+sParamName<1> = '7313'
+sParamName<2> = '6001'
+sParamValues = ''
+sError.param = ''
+Cu.Parameter.CuLibGetCuParameter(sParamNameId,sParamName,sParamValues,sError.param)
+sInactivemnths1 = sParamValues<1>
+sInactivemnths2 = sParamValues<2>
+
+*----------------------------------------------------------------------------
+Process:
+
+YSelCmd = ''
+YList = ''
+YNoOfRec = ''
+YErr = ''
+yInActive = ''
+	YSelCmd = "SELECT ":fnAccount:" WITH CATEGORY EQ ":sParamName<1>:" OR CATEGORY EQ ":sParamName<2>
+	EB.DataAccess.Readlist(YSelCmd,YList,"",YNoOfRec,YErr)
+	
+		LOOP
+			REMOVE AccId FROM YList SETTING YAccPos
+			WHILE AccId:YAccPos
+				yAccCat = ''
+				yAccMemName = ''
+				LstCrCusDate = ''
+				LstDrCusDate = ''
+				LstCrAutDate = ''
+				LstDrAutDate = ''
+				LstCrBnkDate = ''
+				LstDrBnkDate = ''
+				yDate = ''
+				LatestDate = ''
+				
+				EB.DataAccess.FRead(fnAccount,AccId,RAcc,fvAccount,Err)
+				yAccCat = RAcc<AC.AccountOpening.Account.Category>
+				yAccMemName = RAcc<AC.AccountOpening.Account.ShortTitle>
+				LstCrCusDate = RAcc<AC.AccountOpening.Account.DateLastCrCust>
+				LstDrCusDate = RAcc<AC.AccountOpening.Account.DateLastDrCust>
+				LstCrAutDate = RAcc<AC.AccountOpening.Account.DateLastCrAuto>
+				LstDrAutDate = RAcc<AC.AccountOpening.Account.DateLastDrAuto>
+				LstCrBnkDate = RAcc<AC.AccountOpening.Account.DateLastCrBank>
+				LstDrBnkDate = RAcc<AC.AccountOpening.Account.DateLastDrBank>
+			
+				yDate<-1> = LstCrCusDate:@VM:LstDrCusDate:@VM:LstCrAutDate:@VM:LstDrAutDate:@VM:LstCrBnkDate:@VM:LstDrBnkDate
+				LatestDate = MAXIMUM(yDate)
+				
+				IF LatestDate NE 0 THEN
+					BEGIN CASE
+						CASE yAccCat EQ sParamName<1>
+							InactiveMonths = sInactivemnths1
+							GOSUB RecProcess 
+						CASE yAccCat EQ sParamName<2>
+							InactiveMonths = sInactivemnths2
+							GOSUB RecProcess
+					END CASE
+				END
+		REPEAT
+RETURN
+*----------------------------------------------------------------------------------------------------
+RecProcess:
+
+    yTodayDate = EB.SystemTables.getToday()
+
+	V$MONTH = 0        
+    CALL EB.NO.OF.MONTHS(LatestDate,yTodayDate,V$MONTH)
+	AcctCalcMonths = V$MONTH
+	InactiveMonths = InactiveMonths - 1
+    IF AcctCalcMonths GE InactiveMonths THEN
+	   AccountNo = AccId
+	   AccMemName = yAccMemName
+	   LastTranDt = LatestDate
+	   InactPeriod = AcctCalcMonths
+	   yInActive<-1> = AccountNo:"*":AccMemName:"*":LastTranDt:"*":InactPeriod
+		
+	END
+	
+RETURN
+*-----------------------------------------------------------------------------------------------------

@@ -1,0 +1,349 @@
+component Cu.Account
+# Component Isolation Definition
+metamodelVersion 1.6
+# -------------------------------------------------
+
+private method CuDraw
+(
+)
+{
+    jBC: CU.DRAW
+}
+
+private method CuDrawFields
+(
+)
+{
+    jBC: CU.DRAW.FIELDS
+}
+
+private method CuDrawId
+(
+)
+{
+    jBC: CU.DRAW.ID
+}
+
+private method CuDrawRecord
+(
+)
+{
+    jBC: CU.DRAW.RECORD
+}
+
+private method CuDrawValidate
+(
+)
+{
+    jBC: CU.DRAW.VALIDATE
+}
+
+private method CuDrawAuthorise
+(
+)
+{
+    jBC: CU.DRAW.AUTHORISE
+}
+
+public table CuDraw {
+    t24: CU.DRAW
+    fields:{  
+        CuDrawDrawAcct(CU.DRAW.DRAW.ACCT) = 1
+        CuDrawStartDate(CU.DRAW.START.DATE) = 2
+        CuDrawEndDate(CU.DRAW.END.DATE) = 3
+        CuDrawPrizeDescription(CU.DRAW.PRIZE.DESCRIPTION) = 4
+        CuDrawPrizeWinAcct(CU.DRAW.PRIZE.WIN.ACCT) = 5
+        CuDrawPrizeWinMember(CU.DRAW.PRIZE.WIN.MEMBER) = 6
+        CuDrawPrizeWinName(CU.DRAW.PRIZE.WIN.NAME) = 7
+        CuDrawManualEntry(CU.DRAW.MANUAL.ENTRY) = 8
+        CuDrawAction(CU.DRAW.ACTION) = 9
+        CuDrawDrawDateTime(CU.DRAW.DRAW.DATE.TIME) = 10
+        CuDrawUser(CU.DRAW.USER) = 11
+        CuDrawAllowDup(CU.DRAW.ALLOW.DUP) = 12
+        CuDrawAllowUser(CU.DRAW.ALLOW.USER) = 13
+        CuDrawFileHash(CU.DRAW.FILE.HASH) = 14
+        CuDrawReserved3(CU.DRAW.RESERVED.3) = 15
+        CuDrawReserved2(CU.DRAW.RESERVED.2) = 16
+        CuDrawReserved1(CU.DRAW.RESERVED.1) = 17
+        CuDrawRecordStatus(CU.DRAW.RECORD.STATUS) = 18
+        CuDrawCurrNo(CU.DRAW.CURR.NO) = 19
+        CuDrawInputter(CU.DRAW.INPUTTER) = 20
+        CuDrawDateTime(CU.DRAW.DATE.TIME) = 21
+        CuDrawAuthoriser(CU.DRAW.AUTHORISER) = 22
+        CuDrawCoCode(CU.DRAW.CO.CODE) = 23
+        CuDrawDeptCode(CU.DRAW.DEPT.CODE) = 24
+        CuDrawAuditorCode(CU.DRAW.AUDITOR.CODE) = 25
+        CuDrawAuditDateTime(CU.DRAW.AUDIT.DATE.TIME) = 26
+    }
+}
+
+private method CuPrizeDraw
+(
+)
+{
+    jBC: CU.PRIZE.DRAW
+}
+
+private method CuPrizeDrawFields
+(
+)
+{
+    jBC: CU.PRIZE.DRAW.FIELDS
+}
+
+public table CuPrizeDraw {
+    t24: CU.PRIZE.DRAW
+    fields:{
+              
+        CuPrizeDrawOrderingCust(CU.PR.DRAW.ORDERING.CUST) = 1
+        CuPrizeDrawStoId(CU.PR.DRAW.STO.ID) = 2
+        CuPrizeDrawReserved3(CU.PR.DRAW.RESERVED.3) = 3
+        CuPrizeDrawReserved2(CU.PR.DRAW.RESERVED.2) = 4
+        CuPrizeDrawReserved1(CU.PR.DRAW.RESERVED.1) = 5
+    }
+}
+
+private method LibGetAcStmtEntries
+(
+    IN sAccountId string,
+    IN sStartDate string,
+    IN sEndDate string,
+    OUT sEntryIdList string,
+    OUT sLibError string
+)
+{
+    jBC: CU.LIB.GET.AC.STMT.ENTRIES
+}
+
+
+private method EBldDrawAccountList
+(
+    INOUT ENQ.DATA string
+
+)
+{
+    jBC: CU.E.BLD.DRAW.ACCOUNT.LIST
+}
+
+private method LibReadSeq
+(
+    IN sPath string,
+    IN sFileName string,
+    OUT sLines string,
+    OUT sLibError string
+)
+{
+    jBC: CU.LIB.READ.SEQ
+}
+
+private method LibWriteSeq
+(
+    IN sPath string,
+    IN sFileName string,
+    OUT sLines string,
+    OUT sLibError string
+)
+{
+    jBC: CU.LIB.WRITE.SEQ
+}
+
+private method NofileECuCarDrawSto
+(
+    OUT sOutput string
+
+)
+{
+    jBC: NOFILE.E.CU.CAR.DRAW.STO
+}
+
+private method ENofDrawWinners
+(
+    OUT sOutIdList string
+
+)
+{
+    jBC: CU.E.NOF.DRAW.WINNERS
+}
+
+private method VAuthStoCust
+(
+)
+{
+    jBC: CU.V.AUTH.STO.CUST
+}
+
+private method LibSendEmail
+(
+    IN sToAddr string,
+    IN sSubject string,
+    IN sContent string,
+    IN sAttachmentPath string,
+    OUT sAttachment string,
+    OUT sError string
+)
+{
+    jBC: CU.LIB.SEND.EMAIL
+}
+
+private method BGetCarDrawListToday
+(
+)
+{
+    jBC: CU.B.GET.CAR.DRAW.LIST.TODAY
+}
+
+private method CuBDraw
+(
+)
+{
+    jBC: CU.B.DRAW
+}
+
+private method StoCarDrawAmt
+(
+    IN SOId string,
+    IN rSO string,
+    IN rAcc string,
+    OUT amtCurr string
+)
+{
+    jBC: CU.STO.CAR.DRAW.AMT
+}
+
+private method VChrSoCarDrawEntryFee
+(
+)
+{
+    jBC: CU.V.CHR.SO.CAR.DRAW.ENTRY.FEE
+}
+
+private method LibCuErrorWrite
+(
+    IN sErrorId string,
+    IN rError string
+)
+{
+    jBC: CU.LIB.CU.ERROR.WRITE
+}
+
+private method LibGetDate
+(
+    IN sType string,
+    IN sFormat string,
+    IN sDelim string,
+    IN sOutDate string
+)
+{
+    jBC: CU.LIB.GET.DATE
+}
+
+private method CuDbiSto
+(
+)
+{
+    jBC: CU.DBI.STO
+}
+
+private method CuDbiStoFields
+(
+)
+{
+    jBC: CU.DBI.STO.FIELDS
+}
+
+public table CuDbiSto {
+    t24: CU.DBI.STO
+    fields:{
+              
+        CuDbiStoOrderingCust(CU.DBI.STO.ORDERING.CUST) = 1
+        CuDbiStoStoId(CU.DBI.STO.STO.ID) = 2
+        CuDbiStoReserved3(CU.DBI.STO.RESERVED.3) = 3
+        CuDbiStoReserved2(CU.DBI.STO.RESERVED.2) = 4
+        CuDbiStoReserved1(CU.DBI.STO.RESERVED.1) = 5
+    }
+}
+
+private method VAuthStoDbiCust
+(
+)
+{
+    jBC: CU.V.AUTH.STO.DBI.CUST
+}
+
+private method VChrStoDbi
+(
+)
+{
+    jBC: CU.V.CHR.STO.DBI
+}
+
+private method VInpStoCustAge
+(
+)
+{
+    jBC: CU.V.INP.STO.CUST.AGE
+}
+
+private method BDrawBulkPayLoad
+(
+)
+{
+    jBC: CU.B.DRAW.BULK.PAY.LOAD
+}
+
+private method BDrawBulkPaySelect
+(
+)
+{
+    jBC: CU.B.DRAW.BULK.PAY.SELECT
+}
+
+private method BDrawBulkPay
+(
+    IN sId string
+)
+{
+    jBC: CU.B.DRAW.BULK.PAY
+}
+
+module property readwrite sPayAmount : string
+module property readwrite fnCuPrizeDraw : structure
+module property readwrite fvCuPrizeDraw : structure
+module property readwrite fnAccount : structure
+module property readwrite fvAccount : structure   
+module property readwrite sIntAccount : string
+module property readwrite sPayType : string
+
+private method VChrStoStdFi
+(
+)
+{
+    jBC: CU.V.CHR.STO.STD.FI
+}
+
+private method cuContraAccTransfer (
+)
+{
+    jBC: CU.CONTRA.ACC.TRANSFER
+}
+
+private method cuContraAccTransferFields (
+)
+{
+    jBC: CU.CONTRA.ACC.TRANSFER.FIELDS
+}
+
+private method cuOfsCheckResp (
+    INOUT response string
+)
+{
+    jBC: CU.OFS.CHECK.RESP
+}
+
+
+private method cuBDrawBulkPayPost (
+)
+{
+    jBC: CU.B.DRAW.BULK.PAY.POST
+}
+

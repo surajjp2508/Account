@@ -1,0 +1,104 @@
+* @ValidationCode : MjoxNDU1NTA1NzM4OkNwMTI1MjoxNTk3MjM0NDYzMjIwOk1hZ2k6LTE6LTE6MDowOmZhbHNlOk4vQTpSMTlfU1AyNS4wOi0xOi0x
+* @ValidationInfo : Timestamp         : 12 Aug 2020 15:14:23
+* @ValidationInfo : Encoding          : Cp1252
+* @ValidationInfo : User Name         : Magi
+* @ValidationInfo : Nb tests success  : N/A
+* @ValidationInfo : Nb tests failure  : N/A
+* @ValidationInfo : Rating            : N/A
+* @ValidationInfo : Coverage          : N/A
+* @ValidationInfo : Strict flag       : N/A
+* @ValidationInfo : Bypass GateKeeper : false
+* @ValidationInfo : Compiler Version  : R19_SP25.0
+$PACKAGE Cu.Account
+*===============================================================================
+SUBROUTINE CU.B.DRAW.BULK.PAY( sId )
+*===============================================================================
+* Company Name    : CUP
+* Developed By    : Magdalena Pavlova
+* Arguments In    : CU.PRIZE.DRAW Id
+* Arguments Out   : n\a
+* Attached To     : n\a
+* Attached As     : n\a
+*-----------------------------------------------------------------------------
+* Description     : CU.B.DRAW.BULK.PAY service routine
+*-----------------------------------------------------------------------------
+* Modification History:
+*------------------------
+* Date              Who                Reference                 Description
+*-----------------------------------------------------------------------------
+* 22-07-2020        Magdalena Pavlova                            Initial Version
+*===============================================================================
+
+    $USING EB.SystemTables
+    $USING EB.ErrorProcessing
+    $USING EB.DataAccess
+    $USING EB.Service
+    $USING EB.Utility
+    $USING AC.AccountOpening
+    $USING FT.Contract
+    $USING EB.Foundation
+    $USING EB.Interface
+    
+    
+    GOSUB Initialise
+    
+
+RETURN
+
+Initialise:
+*-------------------------------------------------------------------------------
+    rCuPrizeDraw = ''
+    errCuPrizeDraw   = ''
+    
+    EB.DataAccess.FRead(Cu.Account.getfnCuPrizeDraw() ,sId, rCuPrizeDraw, Cu.Account.getfvCuPrizeDraw(),errCuPrizeDraw)
+    sNoAccounts = DCOUNT(rCuPrizeDraw, @FM)
+*Added WHILE loop instead of FOR loop.    
+	
+	*FOR iCount = 1 TO sNoAccounts
+	LOOP
+	iCount = 1
+	WHILE iCount LE sNoAccounts
+        sAccountId = FIELD( rCuPrizeDraw<iCount>, '.', 1)
+        rAccount = ''
+        sErrAccount   = ''
+        EB.DataAccess.FRead(Cu.Account.getfnAccount(), sAccountId, rAccount, Cu.Account.getfvAccount(), sErrAccount )
+        IF rAccount<AC.AccountOpening.Account.ClosureDate> NE '' THEN
+            *CONTINUE
+			SampFlag = 1
+        END
+		IF NOT(SampFlag) THEN
+		   GOSUB Process
+		END    
+    iCount = iCount + 1
+	
+	REPEAT
+	*NEXT 
+     
+RETURN
+
+Process:
+*-------------------------------------------------------------------------------
+
+    sAppication = 'FUNDS.TRANSFER'
+    sFunction   = 'I'
+    sProcess    = 'PROCESS'
+    sVersion    = 'FUNDS.TRANSFER,DRAW.OFS'
+    sGtsMode    = ''
+    sNoOfAuth   = '0'
+    sFtId       = ''
+    sOfsSource  = 'FT.DRAW'
+    rFtRecord<FT.Contract.FundsTransfer.TransactionType> = Cu.Account.getsPayType()
+    rFtRecord<FT.Contract.FundsTransfer.DebitAcctNo> = sAccountId
+    rFtRecord<FT.Contract.FundsTransfer.DebitCurrency> = 'EUR'
+    rFtRecord<FT.Contract.FundsTransfer.DebitAmount> = Cu.Account.getsPayAmount()
+    rFtRecord<FT.Contract.FundsTransfer.CreditAcctNo> = Cu.Account.getsIntAccount()
+	rFtRecord<FT.Contract.FundsTransfer.OrderingCust> = sId
+    
+    rOfsRecord = ''
+    EB.Foundation.OfsBuildRecord(sAppication, sFunction, sProcess, sVersion, sGtsMode, sNoOfAuth, sFtId, rFtRecord, rOfsRecord)
+    EB.Interface.OfsPostMessage(rOfsRecord, '', sOfsSource, '')
+
+RETURN
+
+END
+

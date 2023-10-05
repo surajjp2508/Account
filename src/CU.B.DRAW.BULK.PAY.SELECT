@@ -1,0 +1,53 @@
+* @ValidationCode : MjoyMTQ3NTIyNTQ6Q3AxMjUyOjE1OTcyMjg5ODcwMjA6TWFnaTotMTotMTowOjA6ZmFsc2U6Ti9BOlIxOV9TUDI1LjA6LTE6LTE=
+* @ValidationInfo : Timestamp         : 12 Aug 2020 13:43:07
+* @ValidationInfo : Encoding          : Cp1252
+* @ValidationInfo : User Name         : Magi
+* @ValidationInfo : Nb tests success  : N/A
+* @ValidationInfo : Nb tests failure  : N/A
+* @ValidationInfo : Rating            : N/A
+* @ValidationInfo : Coverage          : N/A
+* @ValidationInfo : Strict flag       : N/A
+* @ValidationInfo : Bypass GateKeeper : false
+* @ValidationInfo : Compiler Version  : R19_SP25.0
+$PACKAGE Cu.Account
+*-----------------------------------------------------------------------------
+* <Rating>-31</Rating>
+*-----------------------------------------------------------------------------
+SUBROUTINE CU.B.DRAW.BULK.PAY.SELECT
+*===============================================================================
+* Company Name    : CUP
+* Developed By    : Magdalena Pavlova
+* Arguments In    : n\a
+* Arguments Out   : n\a
+* Attached To     : n\a
+* Attached As     : n\a
+*-----------------------------------------------------------------------------
+* Description     : .SELECT routine for CU.B.DRAW.BULK.PAY rotutine
+*-----------------------------------------------------------------------------
+* Modification History:
+*------------------------
+* Date              Who                Reference                 Description
+*-----------------------------------------------------------------------------
+* 22-07-2020        Magdalena Pavlova                            Initial Version
+*===============================================================================
+
+    $USING EB.SystemTables
+    $USING EB.DataAccess
+    $USING EB.Service
+    $USING EB.Utility
+   
+    GOSUB Select
+
+RETURN
+
+Select:
+*-------------------------------------------------------------------------------
+
+    sSelect.cmd = 'SELECT ' :Cu.Account.getfnCuPrizeDraw()
+    EB.DataAccess.Readlist( sSelect.cmd, sSelect.list, '', sSelect.count, sSelect.flag )
+   
+    EB.Service.BatchBuildList( '', sSelect.list )
+
+RETURN
+
+END
